@@ -1,0 +1,24 @@
+services:
+  ws:
+    container_name: ws
+    depends_on:
+      redis:
+        condition: service_healthy
+    build: .
+    volumes:
+      - .dockervenv:/src/.venv
+      - .:/src
+    ports:
+      - 8000:8000
+  redis:
+    image: "redis:latest"
+    ports:
+      - "6379:6379"
+    volumes:
+      - "./data/redis:/data"
+      - "./redis.conf:/etc/redis.conf"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 1s
+      timeout: 30s
+      retries: 30
