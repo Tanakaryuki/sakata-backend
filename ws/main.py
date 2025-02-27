@@ -7,7 +7,8 @@ load_dotenv()
 from ws import routers
 
 app = FastAPI()
-# app.include_router(routers.router)
+app.include_router(routers.router)
+
 @app.get("/hello")
 async def hello():
     return {"message": "hello world!"}
