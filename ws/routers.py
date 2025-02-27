@@ -48,8 +48,8 @@ async def websocket_endpoint(websocket: WebSocket,redis: Redis = Depends(get_red
                 case schema.EventTypeEnum.send_shot:
                     room_id = json_data["room"]["room_id"]
                     is_ready = event._add_shot(redis=redis,room_id=room_id,data=json_data)
-                    message = event._create_response(redis=redis,event_type=event_type,json_data=json_data,room_id=room_id,id=None,num=None)
-                    await websocket.send_text(message)
+                    message = event._create_broadcast(redis=redis,event_type=event_type,json_data=json_data,room_id=room_id)
+                    await event._broadcast(room_id=room_id,message=message)
                     if is_ready:
                         message = event._create_broadcast(redis=redis,event_type=schema.EventTypeEnum.ready_shot,json_data=json_data,room_id=room_id)
                         await event._broadcast(room_id=room_id,message=message)

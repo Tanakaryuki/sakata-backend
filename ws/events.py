@@ -224,6 +224,8 @@ def _create_broadcast(redis:Redis,event_type: schema.EventTypeEnum,json_data: di
             json_data = _change_enter_room_broadcast(redis=redis,json_data=json_data,room_id=room_id)
         case schema.EventTypeEnum.start_game:
             json_data = _change_start_game_broadcast(redis=redis,json_data=json_data,room_id=room_id)
+        case schema.EventTypeEnum.send_shot:
+            json_data = _change_send_shot_response(redis=redis,json_data=json_data,room_id=room_id)
         case schema.EventTypeEnum.ready_shot:
             json_data = _change_ready_shot_broadcast(redis=redis,json_data=json_data,room_id=room_id)
     return json.dumps(json_data)
