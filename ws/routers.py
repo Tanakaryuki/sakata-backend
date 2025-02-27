@@ -48,11 +48,29 @@ async def websocket_endpoint(websocket: WebSocket,redis: Redis = Depends(get_red
                 case schema.EventTypeEnum.send_shot:
                     room_id = json_data["room"]["room_id"]
                     is_ready = event._add_shot(redis=redis,room_id=room_id,data=json_data)
+                    print(f"is_ready: {is_ready}")
                     message = event._create_broadcast(redis=redis,event_type=event_type,json_data=json_data,room_id=room_id)
                     await event._broadcast(room_id=room_id,message=message)
                     if is_ready:
                         message = event._create_broadcast(redis=redis,event_type=schema.EventTypeEnum.ready_shot,json_data=json_data,room_id=room_id)
                         await event._broadcast(room_id=room_id,message=message)
+                    print(f"send_shot: {room_id}")
+                case schema.EventTypeEnum.reach_no_goal:
+                    room_id = json_data["room"]["room_id"]
+                    is_next_game = event._add_no_goal(redis=redis,room_id=room_id,data=json_data)
+                    if is_next_game:
+                        message = event._create_broadcast(redis=redis,event_type=schema.EventTypeEnum.wait_for_next_shot,json_data=json_data,room_id=room_id)
+                        await event._broadcast(room_id=room_id,message=message)
+                        print(f"next_game: {room_id}")
+                    else:
+                        message = event._create_broadcast(redis=redis,event_type=event_type,json_data=json_data,room_id=room_id)
+                        await event._broadcast(room_id=room_id,message=message)
+                        print(f"reach_no_goal: {room_id}")
+                case schema.EventTypeEnum.reach_goal:
+                    room_id = json_data["room"]["room_id"]
+                    message = event._create_broadcast(redis=redis,event_type=event_type,json_data=json_data,room_id=room_id)
+                    await event._broadcast(room_id=room_id,message=message)
+                    print(f"reach_goal: {room_id}")
             
     except Exception as e:
         print(f"WebSocketエラー: {e}")

@@ -7,9 +7,10 @@ class EventTypeEnum(str, Enum):
     start_game = "start_game"
     send_shot = "send_shot"
     ready_shot = "ready_shot"
+    reach_no_goal = "reach_no_goal"
+    wait_for_next_shot = "wait_for_next_shot"
     reach_goal = "reach_goal"
     notify_game_end = "notify_game_end"
-    wait_for_next_shot = "wait_for_next_shot"
 
 class VoteItem(BaseModel):
     id: str | None

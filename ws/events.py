@@ -41,12 +41,27 @@ def _add_shot(redis: Redis,room_id: str,data: dict) -> bool:
     value = json.loads(value)
     value["shots"].append(data["shot"])
     crud.post_redis(redis=redis,key=room_id,value=json.dumps(value))
+    print(f"shots: {value['shots']}")
     if len(value["shots"]) == len(value["users"]):
         value["status"]["mode"] = schema.ModeTypeEnum.firing
         crud.post_redis(redis=redis,key=room_id,value=json.dumps(value))
         return True
     else:
         return False
+    
+def _add_no_goal(redis: Redis, room_id: str, data: dict) -> bool:
+    value_str = crud.get_redis(redis=redis, key=room_id)
+    value = json.loads(value_str)
+
+    value["shots"].pop()
+    crud.post_redis(redis=redis, key=room_id, value=json.dumps(value))
+
+    if not value["shots"]:
+        value["shots"] = []
+        crud.post_redis(redis=redis, key=room_id, value=json.dumps(value))
+        return True
+
+    return False
 
 def _ask_question(question: str,word: str) -> str|None:
     print(question,word)
@@ -205,6 +220,22 @@ def _change_ready_shot_broadcast(redis: Redis, json_data: dict, room_id: str) ->
     
     return json_data
 
+def _change_wait_for_next_shot(redis: Redis, json_data: dict, room_id: str) -> dict:
+    value = crud.get_redis(redis=redis, key=room_id)
+    value = json.loads(value)
+    json_data["shots"] = value["shots"]
+    json_data["users"] = value["users"]
+    json_data["event_type"] = "wait_for_next_shot"
+    
+    return json_data
+
+def _change_reach_goal(redis: Redis, json_data: dict, room_id: str) -> dict:
+    value = crud.get_redis(redis=redis, key=room_id)
+    value = json.loads(value)
+    json_data["event_type"] = "reach_goal"
+    
+    return json_data
+
 
 def _create_response(redis:Redis,event_type: schema.EventTypeEnum,json_data: dict,room_id: str,id: str,num: int|None) -> str:
     match event_type:
@@ -228,6 +259,10 @@ def _create_broadcast(redis:Redis,event_type: schema.EventTypeEnum,json_data: di
             json_data = _change_send_shot_response(redis=redis,json_data=json_data,room_id=room_id)
         case schema.EventTypeEnum.ready_shot:
             json_data = _change_ready_shot_broadcast(redis=redis,json_data=json_data,room_id=room_id)
+        case schema.EventTypeEnum.wait_for_next_shot:
+            json_data = _change_wait_for_next_shot(redis=redis,json_data=json_data,room_id=room_id)
+        case schema.EventTypeEnum.reach_goal:
+            json_data = _change_reach_goal(redis=redis,json_data=json_data,room_id=room_id)
     return json.dumps(json_data)
 
 async def _game_loop(redis:Redis,room_id: str,json_data: dict):
