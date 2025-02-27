@@ -36,28 +36,15 @@ def _create_room(redis: Redis,data: dict) -> str | None:
     crud.post_redis(redis=redis,key=room_id,value=value)
     return room_id
 
-def _add_shot(redis: Redis, room_id: str, data: dict) -> bool:
-    value = crud.get_redis(redis=redis, key=room_id)
+def _add_shot(redis: Redis,room_id: str,data: dict) -> bool:
+    value = crud.get_redis(redis=redis,key=room_id)
     value = json.loads(value)
-    user_id = data["user"]["id"]  # ユーザIDを取得
-
-    # 既にこのユーザのshotが登録されていないか確認
-    for shot in value.get("shots", []):
-        if shot.get("user_id") == user_id:
-            # 既に登録済みなら何もしない
-            print(f"User {user_id} has already shot.")
-            return len(value["shots"]) == len(value["users"])
-
-    # 初回のshotにはユーザIDを付加して記録
-    shot_data = data["shot"]
-    shot_data["user_id"] = user_id
-    value["shots"].append(shot_data)
-    crud.post_redis(redis=redis, key=room_id, value=json.dumps(value))
+    value["shots"].append(data["shot"])
+    crud.post_redis(redis=redis,key=room_id,value=json.dumps(value))
     print(f"shots: {value['shots']}")
-
     if len(value["shots"]) == len(value["users"]):
         value["status"]["mode"] = schema.ModeTypeEnum.firing
-        crud.post_redis(redis=redis, key=room_id, value=json.dumps(value))
+        crud.post_redis(redis=redis,key=room_id,value=json.dumps(value))
         return True
     else:
         return False
