@@ -3,12 +3,10 @@ from pydantic import BaseModel,Field
 
 class EventTypeEnum(str, Enum):
     create_room = "create_room"
-    notify_room_id = "notify_room_id"
     join_room = "join_room"
     start_game = "start_game"
-    notify_start_game = "notify_start_game"
     send_shot = "send_shot"
-    notify_shot = "notify_shot"
+    ready_shot = "ready_shot"
     reach_goal = "reach_goal"
     notify_game_end = "notify_game_end"
     wait_for_next_shot = "wait_for_next_shot"
@@ -50,6 +48,10 @@ class UsersItem(BaseModel):
     word: str | None
     vote: list[VoteItem] | None
 
+class ShotItem(BaseModel):
+    x: float
+    y: float
+
 class Request(BaseModel):
     event_type: EventTypeEnum
     user: UserItem | None
@@ -59,6 +61,7 @@ class Request(BaseModel):
     time_now: str | None
     win: WinEnum | None
     users: list[UsersItem] | None
+    shot: ShotItem | None
     
 class Response(BaseModel):
     event_type: EventTypeEnum
@@ -69,6 +72,7 @@ class Response(BaseModel):
     time_now: str | None
     win: WinEnum | None
     users: list[UsersItem] | None
+    shot: ShotItem | None
     
 class RedisGetRequest(BaseModel):
     key: str
@@ -89,6 +93,7 @@ class RedisGetListResponse(BaseModel):
 class ModeTypeEnum(str, Enum):
     wait = "wait"
     playing = "playing"
+    firing = "firing"
     game_end = "game_end"
 
 class status(BaseModel):

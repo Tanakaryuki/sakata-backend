@@ -6,6 +6,7 @@ import random
 import asyncio
 import requests
 import os
+import math
 
 import ws.schemas as schema
 import ws.cruds as crud
@@ -34,6 +35,18 @@ def _create_room(redis: Redis,data: dict) -> str | None:
     value = json.dumps(json_data)
     crud.post_redis(redis=redis,key=room_id,value=value)
     return room_id
+
+def _add_shot(redis: Redis,room_id: str,data: dict) -> bool:
+    value = crud.get_redis(redis=redis,key=room_id)
+    value = json.loads(value)
+    value["shots"].append(data["shot"])
+    crud.post_redis(redis=redis,key=room_id,value=json.dumps(value))
+    if len(value["shots"]) == len(value["users"]):
+        value["status"]["mode"] = schema.ModeTypeEnum.firing
+        crud.post_redis(redis=redis,key=room_id,value=json.dumps(value))
+        return True
+    else:
+        return False
 
 def _ask_question(question: str,word: str) -> str|None:
     print(question,word)
@@ -107,6 +120,7 @@ def _get_room_model() -> dict:
         "status": {
             "mode": "wait",
         },
+        "shots": [],
         "users": []
     }
     return json
@@ -141,6 +155,13 @@ def _change_start_game_response(redis:Redis,json_data: dict,room_id: str,id: str
     
     return json_data
 
+def _change_send_shot_response(redis:Redis,json_data: dict,room_id: str) -> dict:
+    value = crud.get_redis(redis=redis,key=room_id)
+    value = json.loads(value)
+    json_data["shot"] = False
+    
+    return json_data
+
 def _change_enter_room_broadcast(redis:Redis,json_data: dict,room_id: str) -> dict:
     value = crud.get_redis(redis=redis,key=room_id)
     value = json.loads(value)
@@ -151,14 +172,50 @@ def _change_enter_room_broadcast(redis:Redis,json_data: dict,room_id: str) -> di
 def _change_start_game_broadcast(redis:Redis,json_data: dict,room_id: str) -> dict:
     return json_data
 
+def _change_ready_shot_broadcast(redis: Redis, json_data: dict, room_id: str) -> dict:
+    value = crud.get_redis(redis=redis, key=room_id)
+    value = json.loads(value)
+    shots = value.get("shots", [])
+    
+    total_x = 0
+    total_y = 0
+
+    for shot in shots:
+        x = shot["x"]
+        y = shot["y"]
+        total_x += x
+        total_y += y
+
+    # ベクトルの大きさを計算
+    magnitude = math.sqrt(total_x**2 + total_y**2)
+
+    # 単位円に正規化
+    if magnitude > 0:
+        unit_x = total_x / magnitude
+        unit_y = total_y / magnitude
+    else:
+        unit_x = 0
+        unit_y = 0
+
+    json_data["shot"] = {
+        "x": unit_x,
+        "y": unit_y
+    }
+    json_data["event_type"] = "ready_shot"
+    
+    return json_data
+
+
 def _create_response(redis:Redis,event_type: schema.EventTypeEnum,json_data: dict,room_id: str,id: str,num: int|None) -> str:
     match event_type:
         case schema.EventTypeEnum.create_room:
             json_data = _change_create_room_response(redis=redis,json_data=json_data,room_id=room_id)
-        case schema.EventTypeEnum.enter_room:
+        case schema.EventTypeEnum.join_room:
             json_data = _change_enter_room_response(redis=redis,json_data=json_data,room_id=room_id,id=id)
         case schema.EventTypeEnum.start_game:
             json_data = _change_start_game_response(redis=redis,json_data=json_data,room_id=room_id,id=id,num=num)
+        case schema.EventTypeEnum.send_shot:
+            json_data = _change_send_shot_response(redis=redis,json_data=json_data,room_id=room_id)
     return json.dumps(json_data)
 
 def _create_broadcast(redis:Redis,event_type: schema.EventTypeEnum,json_data: dict,room_id: str) -> str:
@@ -167,6 +224,8 @@ def _create_broadcast(redis:Redis,event_type: schema.EventTypeEnum,json_data: di
             json_data = _change_enter_room_broadcast(redis=redis,json_data=json_data,room_id=room_id)
         case schema.EventTypeEnum.start_game:
             json_data = _change_start_game_broadcast(redis=redis,json_data=json_data,room_id=room_id)
+        case schema.EventTypeEnum.ready_shot:
+            json_data = _change_ready_shot_broadcast(redis=redis,json_data=json_data,room_id=room_id)
     return json.dumps(json_data)
 
 async def _game_loop(redis:Redis,room_id: str,json_data: dict):

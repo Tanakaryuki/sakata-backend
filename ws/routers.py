@@ -15,6 +15,7 @@ router = APIRouter()
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket,redis: Redis = Depends(get_redis)):
     await websocket.accept()
+    print("WebSocket接続")
     global room_users
     try:
         while True:
@@ -29,6 +30,7 @@ async def websocket_endpoint(websocket: WebSocket,redis: Redis = Depends(get_red
                     room_users[room_id] = []
                     room_users[room_id].append(websocket)
                     message = event._create_response(redis=redis,event_type=event_type,json_data=json_data,room_id=room_id,id=id,num=None)
+                    print(f"create_room: {room_id}")
                     await websocket.send_text(message)
                 case schema.EventTypeEnum.join_room:
                     room_id = json_data["room"]["room_id"]
@@ -36,28 +38,21 @@ async def websocket_endpoint(websocket: WebSocket,redis: Redis = Depends(get_red
                     room_users[room_id].append(websocket)
                     message = event._create_broadcast(redis=redis,event_type=event_type,json_data=json_data,room_id=room_id)
                     await event._broadcast(room_id=room_id,message=message)
+                    print(f"join_room: {room_id}")
                 case schema.EventTypeEnum.start_game:
                     room_id = json_data["room"]["room_id"]
-                    print(room_id)
                     event._change_room_mode(redis=redis,room_id=room_id,mode=schema.ModeTypeEnum.playing,json_data=json_data)
-                    print("change room mode")
                     message = event._create_broadcast(redis=redis,event_type=event_type,json_data=json_data,room_id=json_data["room"]["room_id"])
-                    print("create broadcast")
                     await event._broadcast(room_id=room_id,message=message)
-                    
-                    global game_loops
-                    print(game_loops)
-                    game_loops[room_id] = asyncio.create_task(event._game_loop(redis=redis,room_id=room_id,json_data=json_data))
-                # case schema.EventTypeEnum.ask_question:
-                #     question = json_data["chat_text"]
-                #     json_data["event_type"] = schema.EventTypeEnum.ask_question
-                #     await event._broadcast(room_id=room_id,message=json.dumps(json_data))
-                #     word = event._get_word(redis=redis,room_id=room_id)
-                #     response = event._ask_question(question=question,word=word)
-                #     json_data["event_type"] = schema.EventTypeEnum.give_answer
-                #     json_data["chat_text"] = response
-                #     await event._broadcast(room_id=room_id,message=json.dumps(json_data))
-                    
+                    print(f"start_game: {room_id}")
+                case schema.EventTypeEnum.send_shot:
+                    room_id = json_data["room"]["room_id"]
+                    is_ready = event._add_shot(redis=redis,room_id=room_id,data=json_data)
+                    message = event._create_response(redis=redis,event_type=event_type,json_data=json_data,room_id=room_id,id=None,num=None)
+                    await websocket.send_text(message)
+                    if is_ready:
+                        message = event._create_broadcast(redis=redis,event_type=schema.EventTypeEnum.ready_shot,json_data=json_data,room_id=room_id)
+                        await event._broadcast(room_id=room_id,message=message)
             
     except Exception as e:
         print(f"WebSocketエラー: {e}")
